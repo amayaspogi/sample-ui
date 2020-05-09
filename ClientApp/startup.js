@@ -1,7 +1,9 @@
-﻿import containers from './containers.js';
-import models from './models.js';
+﻿import containers from './base/containers.js';
+import router from './base/router.js';
+import models from './base/models.js';
 
 (async () => {
+    
     await containers.register({ key: `app-com-login`, single: true });
     await containers.register({ key: `app-com-signup`, single: true });
 
@@ -15,4 +17,8 @@ import models from './models.js';
     });
 
     window.containers = containers;
+
+    window.onmessage = (e) => {
+        console.log(e.data);
+    }
 })();

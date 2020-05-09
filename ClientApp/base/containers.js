@@ -1,4 +1,4 @@
-﻿import resource from './resource.js';
+﻿import resource from './resource.js?1';
 
 class containers {
     constructor() {
@@ -6,13 +6,10 @@ class containers {
         this._component = new resource(`components`);
         this._template = new resource(`templates`);
         this._model = new resource(`models`);
-        this._timestamp = Date.now();
-        console.log(this.info);
     }
 
     /* properties */
     static get instance() { return this._instance ?? (this._instance = new containers()); }
-    get timestamp() { return this._timestamp; }
     get info() {
         return {
             name: this.constructor.name,
@@ -26,7 +23,6 @@ class containers {
         if (!container.single) {
             container = await this.register(container);
         }
-
         return container.element;
     }
 

@@ -1,6 +1,6 @@
 ﻿export default (data) => {
     return `<!--Default form login-->
-            <form class="text-center border border-light p-5" action="#!">
+            <form class="text-center border border-light p-5">
 
                 <p class="h4 mb-4">Sign in</p>
 

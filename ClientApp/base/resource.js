@@ -15,7 +15,7 @@
         if (!container) {
             container = {
                 key: key,
-                value: await import(`./${this._resource}/${key}.js`)
+                value: await import(`../${this._resource}/${key}.js`)
             };
             this._containers.push(container);
         }
