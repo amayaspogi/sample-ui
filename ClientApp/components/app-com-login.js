@@ -1,4 +1,4 @@
-﻿import { baseComponent } from '../base.js';
+﻿import { baseComponent, containers } from '../base.js';
 
 export default class custom extends baseComponent {
     constructor(template, model) {

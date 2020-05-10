@@ -7,12 +7,13 @@
     <title>Sample UI</title>
     <link rel="stylesheet" href="clientapp/styles/bootstrap/bootstrap.css" />
     <link rel="stylesheet" href="clientapp/styles/bootstrap/mdb.css" />
-    <script id="startup" type="module" src="clientapp/startup.js?v=19"></script>
+    <script id="startup" type="module" src="clientapp/startup.js"></script>
 </head>
 <body>
     <div class="container">
         <main role="main" class="pb-3">
-            <app-container key="app-page-main" />
+            <app-view id="login" key="app-com-login">
+            </app-view>
         </main>
     </div>
 </body>

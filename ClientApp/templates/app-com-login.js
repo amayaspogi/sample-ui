@@ -29,7 +29,7 @@
 
                 <!-- Register -->
                 <p>Not a member?
-                    <a href="#app-com-signup">Register</a>
+                    <a data-router="login" href="signup">Register</a>
                 </p>
 
                 <!-- Social login -->

@@ -8,20 +8,20 @@ class Resource {
 
     /* mthods */
     async resolve(key) {
-        let container = this._containers.filter(container => container.key == key)[0];
-        return container ?? await this.register(key);
+        let resource = this._containers.filter(r => r.key == key)[0];
+        return resource ?? await this.register(key);
     }
 
     async register(key) {
-        let container = this._containers.filter(container => container.key == key)[0];
-        if (!container) {
-            container = {
+        let resource = this._containers.filter(r => r.key == key)[0];
+        if (!resource) {
+            resource = {
                 key: key,
                 value: await import(`./${this._resource}/${key}.js${util.version()}`)
             };
-            this._containers.push(container);
+            this._containers.push(resource);
         }
-        return container;
+        return resource;
     }
 }
 
@@ -35,7 +35,7 @@ export let containers = new class Containers {
 
     /* methods */
     async resolve(args) {
-        let container = this._containers.filter(container => container.key == args.key)[0] ?? args;
+        let container = this._containers.filter(c => c.key == args.key)[0] ?? args;
         if (!container.single) {
             container = await this.register(container);
         }
@@ -54,7 +54,7 @@ export let containers = new class Containers {
             data = modmodel.value.default;
         }
 
-        let container = this._containers.filter(container => container.key == key)[0];
+        let container = this._containers.filter(c => c.key == key)[0];
         if (!container || !single) {
             let modcomp = await this._component.resolve(component);
             let modtemp = await this._template.resolve(template);
@@ -73,36 +73,33 @@ export let containers = new class Containers {
     }
 }
 
-if (!customElements.get('app-container')) {
-    customElements.define('app-container', class extends HTMLElement {
-        constructor() {
-            super();
+export let routers = new class Routers {
+    constructor() {
+        this._containers = new Array();
+    }
+    
+    resolve(args) {
+        let router = this._containers.filter(r => r.key == args.key)[0] ?? args;
+        if (!router) {
+            router = this.register(router);
         }
+        return router;
+    }
 
-        async connectedCallback() {
-            let component = await containers.resolve({
-                key: this.getAttribute(`key`),
-                model: this.getAttribute(`model`)
-            });
-            this.appendChild(component);
-        }
-    });
-}
+    register(args) {
+        let { key, container } = args;
+        container = container ?? key;
 
-if (!customElements.get('app-router')) {
-    customElements.define('app-router', class extends HTMLElement {
-        constructor() {
-            super();
+        let router = this._containers.filter(r => r.key == key)[0];
+        if (!router) {
+            router = {
+                key: key,
+                container: container
+            };
+            this._containers.push(router);
         }
-
-        async connectedCallback() {
-            let component = await containers.resolve({
-                key: this.getAttribute(`key`),
-                model: this.getAttribute(`model`)
-            });
-            this.appendChild(component);
-        }
-    });
+        return router;
+    }
 }
 
 if (!customElements.get('app-view')) {
@@ -128,8 +125,27 @@ export class baseComponent extends HTMLElement {
         this._model = model ?? {};
 
         this.innerHTML = this._template(this._model);
+
+        // find all data-router
+        this.querySelectorAll(`a[data-router][href]`).forEach(x => {
+            x.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const { target } = e;
+
+                let route = target.getAttribute('href');
+                let view = target.getAttribute('data-router');
+
+                let router = routers.resolve({key: route});
+                let component = await containers.resolve({ key: router.container });
+
+                let appview = document.querySelector(`app-view#${view}`);
+
+                history.pushState({}, "", router.key);
+                appview.innerHTML = "";
+                appview.appendChild(component);
+            });
+        });
+
         this.bindEvents();
     }
-
-    bindEvents() { }
 }
