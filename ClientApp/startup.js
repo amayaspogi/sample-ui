@@ -1,6 +1,4 @@
-﻿import containers from './base/containers.js';
-import router from './base/router.js';
-import models from './base/models.js';
+﻿import { containers } from './base.js';
 
 (async () => {
     

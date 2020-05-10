@@ -1,10 +1,11 @@
-﻿import base from './base-component.js';
+﻿import { baseComponent } from '../base.js';
 
-class custom extends base {
+export default class custom extends baseComponent {
     constructor(template, model) {
         super(template, model);
     }
 }
 
-customElements.define(`app-page-main`, custom);
-export default custom;
+if (!customElements.get(`app-page-main`)) {
+    customElements.define(`app-page-main`, custom);
+}
