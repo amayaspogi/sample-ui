@@ -35,8 +35,12 @@ export let containers = new class Containers {
 
     /* methods */
     async resolve(args) {
-        let container = this._containers.filter(c => c.key == args.key)[0] ?? args;
-        if (!container.single) {
+        const { single } = args;
+        let container = this._containers.filter(c => c.key == args.key)[0];
+        if (!container) {
+            container = await this.register(args);
+        }
+        else if (!container.single) {
             container = await this.register(container);
         }
         return container.element;
@@ -108,12 +112,18 @@ if (!customElements.get('app-view')) {
             super();
         }
 
-        async connectedCallback() {
-            let component = await containers.resolve({
-                key: this.getAttribute(`key`),
-                model: this.getAttribute(`model`)
-            });
+        async setComponent(key) {
+            let component = await containers.resolve({ key: key, single: true });
+
+            this.innerHTML = "";
             this.appendChild(component);
+        }
+
+        async connectedCallback() {
+            let key = this.getAttribute(`key`);
+            if (key) {
+                await this.setComponent(key);
+            }
         }
     });
 }
@@ -136,13 +146,11 @@ export class baseComponent extends HTMLElement {
                 let view = target.getAttribute('data-router');
 
                 let router = routers.resolve({key: route});
-                let component = await containers.resolve({ key: router.container });
 
                 let appview = document.querySelector(`app-view#${view}`);
+                await appview.setComponent(router.container);
 
                 history.pushState({}, "", router.key);
-                appview.innerHTML = "";
-                appview.appendChild(component);
             });
         });
 
