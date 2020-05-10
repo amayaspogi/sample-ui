@@ -55,7 +55,7 @@
                     <a href="" target="_blank">terms of service</a>
                 </p>
 
-                <a data-router="login" href="login">Login</a>
+                <a data-router-view="login" href="login">Login</a>
 
             </form>
             <!-- Default form register -->`;

@@ -137,13 +137,13 @@ export class baseComponent extends HTMLElement {
         this.innerHTML = this._template(this._model);
 
         // find all data-router
-        this.querySelectorAll(`a[data-router][href]`).forEach(x => {
+        this.querySelectorAll(`a[data-router-view][href]`).forEach(x => {
             x.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const { target } = e;
 
                 let route = target.getAttribute('href');
-                let view = target.getAttribute('data-router');
+                let view = target.getAttribute('data-router-view');
 
                 let router = routers.resolve({key: route});
 
