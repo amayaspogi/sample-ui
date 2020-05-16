@@ -1,11 +1,16 @@
 ﻿import { baseComponent } from '../base.js';
 
 export class component extends baseComponent {
-    constructor(tmp, mdl) {
-        super(tmp ?? template, mdl ?? model);
+    constructor(template, model) {
+        super(template, model);
     }
 
     bindEvents() {
+        this.querySelector("#signin").addEventListener("click", () => {
+            if (this.model.email != "test@email.com") {
+                alert("invalid email " + this.model.email);
+            }
+        });
     }
 }
 
@@ -13,10 +18,10 @@ if (!customElements.get(`app-com-login`)) {
     customElements.define(`app-com-login`, component);
 }
 
-export function template (data) {
+export function template () {
     return `<div data-model-context class="text-center border border-light p-5">
                 <p class="h4 mb-4">Sign in</p>
-                <input type="email" data-model-prop="email" class="form-control mb-4" placeholder="E-mail">
+                <input type="email" data-model-prop="value" data-model-field="email" class="form-control mb-4" placeholder="E-mail">
                 <input type="password" id="password" class="form-control mb-4" placeholder="Password">
                 <div class="d-flex justify-content-around">
                     <div>
@@ -29,7 +34,7 @@ export function template (data) {
                         <a href="">Forgot password?</a>
                     </div>
                 </div>
-                <button class="btn btn-info btn-block my-4" type="submit">Sign in</button>
+                <button  id="signin"class="btn btn-info btn-block my-4" type="submit">Sign in</button>
                 <p>Not a member?
                     <a data-router-view="login" href="signup">Register</a>
                 </p>
@@ -38,13 +43,12 @@ export function template (data) {
                 <a href="#" class="mx-2" role="button"><i class="fab fa-twitter light-blue-text"></i></a>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-linkedin-in light-blue-text"></i></a>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-github light-blue-text"></i></a>
+                <div data-model-prop="innerHTML" data-model-field="email" class="form-control mb-4" placeholder="E-mail"></div>
             </div>`;
 }
 
-export async function model (param) {
-    return await (async () => {
-        return {
-            email: "howl.david@gmail.com"
-        };
-    })();
+export function model () {
+    return {
+            email: ""
+    };
 }

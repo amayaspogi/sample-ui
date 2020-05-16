@@ -1,47 +1,25 @@
 import * as util from './util.js';
 
-export let containers = new class Containers {
+export let components = new class Components {
     constructor() {
         this._containers = new Array();
     }
 
-    /* methods */
     async resolve(args) {
-        const { single } = args;
         let container = this._containers.filter(c => c.key == args.key)[0];
-        if (!container) {
-            container = await this.register(args);
-        }
-        else if (!container.single) {
-            container = await this.register(container);
-        }
-        return container.element;
+        return (container ?? await this.register(args)).element;
     }
 
     async register(args) {
-        let { key, component, template, single, model } = args;
+        let { key, component } = args;
         component = component ?? key;
-        template = template ?? component;
-        single = !!single;
-
-        let data = null;
-        if (model) {
-            let modmodel = await loadResource('models', model);
-            data = modmodel.default;
-        }
 
         let container = this._containers.filter(c => c.key == key)[0];
-        if (!container || !single) {
+        if (!container) {
             let resource = await this.loadResource('components', component);
             let element = new resource.component(resource.template, resource.model);
 
-            container = {
-                key: key,
-                component: component,
-                template: template,
-                single: single,
-                element: element
-            };
+            container = { key: key, element: element };
             this._containers.push(container);
         }
         return container;
@@ -59,22 +37,16 @@ export let routers = new class Routers {
     
     resolve(args) {
         let router = this._containers.filter(r => r.key == args.key)[0] ?? args;
-        if (!router) {
-            router = this.register(router);
-        }
-        return router;
+        return router ?? this.register(router);
     }
 
     register(args) {
-        let { key, container } = args;
-        container = container ?? key;
+        let { key, component } = args;
+        component = component ?? key;
 
         let router = this._containers.filter(r => r.key == key)[0];
         if (!router) {
-            router = {
-                key: key,
-                container: container
-            };
+            router = { key: key, component: component };
             this._containers.push(router);
         }
         return router;
@@ -88,8 +60,7 @@ if (!customElements.get('app-view')) {
         }
 
         async setComponent(key) {
-            let component = await containers.resolve({ key: key, single: true });
-
+            let component = await components.resolve({ key: key });
             this.innerHTML = "";
             this.appendChild(component);
         }
@@ -104,52 +75,62 @@ if (!customElements.get('app-view')) {
 }
 
 export class baseComponent extends HTMLElement {
-    constructor(template, model, param) {
+    constructor(template, model) {
         super();
-
-        this._template = template;
-        this._model = model ?? this.emptyModel;
-        this._param = param ?? {};
+        this._setup = {};
+        this.innerHTML = template();
+        this.buildModel(model());
+        this._init = false;
     }
 
     async connectedCallback() {
-        let { _model, _param } = this;
-        this.data = await _model(_param);
-
-        let context = this.querySelector("[data-model-context]");
-        if (context) {
-            let proxy = new Proxy(context, {
-                get: function (obj, prop) {
-                    let object = obj.querySelector(`[data-model-prop=${prop}]`);
-                    return object.value;
-                },
-                set: function (obj, prop, value) {
-                    let object = obj.querySelector(`[data-model-prop=${prop}]`);
-                    object.value = value;
-                }
-            });
-
-            this.querySelectorAll(`[data-model-prop]`).forEach(x => {
-                let prop = x.getAttribute("data-model-prop");
-                Object.defineProperty(proxy, prop, { value: this.data[prop], writable: true })
-            });
-
-            this.objectModel = proxy;
+        if (!this._init) {
+            this.bindRouter();
+            this.bindEvents();
+            this.dispatchEvent(new CustomEvent("load"));
+            this._init = true;
         }
     }
 
-    render(data) {
-        let { _template } = this;
-        this._data = data;
-        this.innerHTML = _template(data);
-
-        // find all data-router
-        this.bindRouter();
-        this.bindEvents();
+    get model() { return this._model; }
+    set model(value) {
+        for (let field in value) {
+            Reflect.set(this._model, field, value[field]);
+        }
     }
 
-    get data() { return this._data; }
-    set data(value) { this.render(value); }
+    buildModel(data) {
+        let context = this.querySelector("[data-model-context]");
+        if (context) {
+            this.querySelectorAll("[data-model-prop][data-model-field]").forEach(x => {
+                let field = x.dataset.modelField;
+                let prop = x.dataset.modelProp;
+                this._setup[field] = this._setup[field] ?? { state: null, elements: new Array() };
+                this._setup[field].state = data[field];
+                this._setup[field].elements.push({ element: x, property: prop });
+                x.addEventListener("change", (e) => {
+                    this._setup[field].state = e.currentTarget[prop];
+                    this.model[field] = this._setup[field].state;
+                });
+            });
+        }
+
+        Reflect.set(data, "_setup", this._setup);
+
+        this._model = new Proxy(data, {
+            get: function (obj, prop) {
+                return obj[prop];
+            },
+            set: function (obj, prop, value) {
+                obj[prop] = value;
+                obj._setup[prop].state = obj[prop];
+                obj._setup[prop].elements.forEach(x => {
+                    x.element[x.property] = value;
+                });
+                return true;
+            }
+        });
+    }
 
     bindRouter() {
         this.querySelectorAll(`a[data-router-view][href]`).forEach(x => {
@@ -163,14 +144,10 @@ export class baseComponent extends HTMLElement {
                 let router = routers.resolve({ key: route });
 
                 let appview = document.querySelector(`app-view#${view}`);
-                await appview.setComponent(router.container);
+                await appview.setComponent(router.component);
 
                 history.pushState({}, "", router.key);
             });
         });
-    }
-
-    async emptyModel() {
-        return {};
     }
 }
