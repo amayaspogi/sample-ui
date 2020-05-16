@@ -115,6 +115,27 @@ export class baseComponent extends HTMLElement {
     async connectedCallback() {
         let { _model, _param } = this;
         this.data = await _model(_param);
+
+        let context = this.querySelector("[data-model-context]");
+        if (context) {
+            let proxy = new Proxy(context, {
+                get: function (obj, prop) {
+                    let object = obj.querySelector(`[data-model-prop=${prop}]`);
+                    return object.value;
+                },
+                set: function (obj, prop, value) {
+                    let object = obj.querySelector(`[data-model-prop=${prop}]`);
+                    object.value = value;
+                }
+            });
+
+            this.querySelectorAll(`[data-model-prop]`).forEach(x => {
+                let prop = x.getAttribute("data-model-prop");
+                Object.defineProperty(proxy, prop, { value: this.data[prop], writable: true })
+            });
+
+            this.objectModel = proxy;
+        }
     }
 
     render(data) {
