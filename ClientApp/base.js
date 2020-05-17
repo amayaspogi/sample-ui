@@ -74,12 +74,12 @@ if (!customElements.get('app-view')) {
     });
 }
 
-export class baseComponent extends HTMLElement {
+export class BaseComponent extends HTMLElement {
     constructor(template, model) {
         super();
-        this._setup = {};
+        this._setup = { };
         this.innerHTML = template();
-        this.buildModel(model());
+        this.buildModel(model);
         this._init = false;
     }
 
@@ -113,6 +113,14 @@ export class baseComponent extends HTMLElement {
                     this.model[field] = this._setup[field].state;
                 });
             });
+
+            this.querySelectorAll("[data-model-prop][data-model-field-readonly]").forEach(x => {
+                let field = x.dataset.modelFieldReadonly;
+                let prop = x.dataset.modelProp;
+                this._setup[field] = this._setup[field] ?? { state: null, elements: new Array() };
+                this._setup[field].state = data[field];
+                this._setup[field].elements.push({ element: x, property: prop });
+            });
         }
 
         Reflect.set(data, "_setup", this._setup);
@@ -122,11 +130,26 @@ export class baseComponent extends HTMLElement {
                 return obj[prop];
             },
             set: function (obj, prop, value) {
-                obj[prop] = value;
-                obj._setup[prop].state = obj[prop];
-                obj._setup[prop].elements.forEach(x => {
-                    x.element[x.property] = value;
-                });
+                function iterateObservable(prop) {
+                    (obj._observable[prop] ?? []).forEach(x => {
+                        let observable = obj[x];
+                        (obj._setup[x].elements ?? []).forEach(x => {
+                            x.element[x.property] = observable;
+                        });
+
+                        iterateObservable(x);
+                    });                    
+                }
+
+                if (obj[prop] != value) {
+                    obj[prop] = value;
+                    obj._setup[prop].state = obj[prop];
+                    (obj._setup[prop].elements ?? []).forEach(x => {
+                        x.element[x.property] = value;
+                    });
+
+                    iterateObservable(prop)
+                }
                 return true;
             }
         });

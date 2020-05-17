@@ -1,6 +1,6 @@
-﻿import { baseComponent } from '../base.js';
+﻿import { BaseComponent } from '../base.js';
 
-export class component extends baseComponent {
+export class component extends BaseComponent {
     constructor(template, model) {
         super(template, model);
     }
