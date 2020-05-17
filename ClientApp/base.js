@@ -77,7 +77,7 @@ if (!customElements.get('app-view')) {
 export class BaseComponent extends HTMLElement {
     constructor(template, model) {
         super();
-        this._setup = { };
+        this._setup = { fields: {}, actions: {} };
         this.innerHTML = template();
         this.buildModel(model);
         this._init = false;
@@ -102,24 +102,32 @@ export class BaseComponent extends HTMLElement {
     buildModel(data) {
         let context = this.querySelector("[data-model-context]");
         if (context) {
+            // bind field
             this.querySelectorAll("[data-model-prop][data-model-field]").forEach(x => {
                 let field = x.dataset.modelField;
                 let prop = x.dataset.modelProp;
-                this._setup[field] = this._setup[field] ?? { state: null, elements: new Array() };
-                this._setup[field].state = data[field];
-                this._setup[field].elements.push({ element: x, property: prop });
+                this._setup.fields[field] = this._setup.fields[field] ?? { state: null, elements: new Array() };
+                this._setup.fields[field].state = data[field];
+                this._setup.fields[field].elements.push({ element: x, property: prop });
                 x.addEventListener("change", (e) => {
-                    this._setup[field].state = e.currentTarget[prop];
-                    this.model[field] = this._setup[field].state;
+                    this._setup.fields[field].state = e.currentTarget[prop];
+                    this.model[field] = this._setup.fields[field].state;
                 });
             });
 
-            this.querySelectorAll("[data-model-prop][data-model-field-readonly]").forEach(x => {
-                let field = x.dataset.modelFieldReadonly;
-                let prop = x.dataset.modelProp;
-                this._setup[field] = this._setup[field] ?? { state: null, elements: new Array() };
-                this._setup[field].state = data[field];
-                this._setup[field].elements.push({ element: x, property: prop });
+            // bind action
+            this.querySelectorAll("[data-model-event][data-model-action]").forEach(x => {
+                let action = x.dataset.modelAction;
+                let event = x.dataset.modelEvent;
+                this._setup.actions[action] = this._setup.actions[action] ?? { elements: new Array() };
+                this._setup.actions[action].elements.push({ element: x, event: event });
+                x.addEventListener(event, async (e) => {
+                    e.preventDefault();
+                    let propagate = await this.model[action]();
+                    if (!propagate) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();                    }
+                });
             });
         }
 
@@ -133,7 +141,7 @@ export class BaseComponent extends HTMLElement {
                 function iterateObservable(prop) {
                     (obj._observable[prop] ?? []).forEach(x => {
                         let observable = obj[x];
-                        (obj._setup[x].elements ?? []).forEach(x => {
+                        ((obj._setup.fields[x] ?? {}).elements ?? []).forEach(x => {
                             x.element[x.property] = observable;
                         });
 
@@ -143,8 +151,8 @@ export class BaseComponent extends HTMLElement {
 
                 if (obj[prop] != value) {
                     obj[prop] = value;
-                    obj._setup[prop].state = obj[prop];
-                    (obj._setup[prop].elements ?? []).forEach(x => {
+                    obj._setup.fields[prop].state = obj[prop];
+                    ((obj._setup.fields[prop] ?? {}).elements ?? []).forEach(x => {
                         x.element[x.property] = value;
                     });
 
