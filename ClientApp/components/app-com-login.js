@@ -4,9 +4,6 @@ export class component extends BaseComponent {
     constructor(template, model) {
         super(template, model);
     }
-
-    bindEvents() {
-    }
 }
 
 if (!customElements.get(`app-com-login`)) {
@@ -19,7 +16,7 @@ export function template () {
                     color: #ff0000;
                 }
             </style>
-            <div class="text-center border border-light p-5">
+            <div class="text-center border border-light p-5" data-model-context>
                 <p class="h4 mb-4">Sign in</p>
                 <input type="email" data-model-prop="value" data-model-field="email" class="form-control mb-4" placeholder="E-mail">
                 <input type="password" id="password" class="form-control mb-4" placeholder="Password">
