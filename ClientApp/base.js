@@ -86,7 +86,6 @@ export class BaseComponent extends HTMLElement {
     async connectedCallback() {
         if (!this._init) {
             this.bindRouter();
-            this.bindEvents();
             this.dispatchEvent(new CustomEvent("load"));
             this._init = true;
         }
