@@ -39,7 +39,7 @@ export function template() {
                     <input type="checkbox" class="custom-control-input" id="defaultRegisterFormNewsletter">
                     <label class="custom-control-label" for="defaultRegisterFormNewsletter">Subscribe to our newsletter</label>
                 </div>
-                <a data-model-event="click" data-model-action="signup" data-router-view="login" href="login" class="btn btn-info my-4 btn-block">Sign in</a>
+                <a data-router-view="login" href="login" class="btn btn-info my-4 btn-block">Sign in</a>
                 <p>or sign up with:</p>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-facebook-f light-blue-text"></i></a>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-twitter light-blue-text"></i></a>
@@ -59,11 +59,6 @@ export function template() {
 
 export let model = new class Model {
     constructor() {
-        /*this._observable = {
-            firstName: ["email"],
-            lastName: ["email"],
-            message: ["layout"]
-        };*/
     }
 
     get firstName() { return this._firstName ?? ""; }
@@ -71,9 +66,6 @@ export let model = new class Model {
 
     get lastName() { return this._lastName ?? ""; }
     set lastName(value) { this._lastName = value; }
-
-    get email() { return `${this.firstName}.${this.lastName}@gmail.com`.toLowerCase(); }
-    set email(value) { }
 
     get password() { return this._password ?? ""; }
     set password(value) { this._password = value; }

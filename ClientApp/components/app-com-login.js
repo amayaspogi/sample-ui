@@ -1,8 +1,8 @@
 ﻿import { BaseComponent } from '../base.js';
 
 export class component extends BaseComponent {
-    constructor(template, model) {
-        super(template, model);
+    constructor(template, model, lambda) {
+        super(template, model, lambda);
     }
 }
 
@@ -13,12 +13,12 @@ if (!customElements.get(`app-com-login`)) {
 export function template () {
     return `<style>
                 .error {
-                    color: #ff0000;
+                    background-color: #ff0000;
                 }
             </style>
-            <div class="text-center border border-light p-5" data-model-context>
+            <div class="text-center border border-light p-5" data-context>
                 <p class="h4 mb-4">Sign in</p>
-                <input type="email" data-model-prop="value" data-model-field="email" class="form-control mb-4" placeholder="E-mail">
+                <input type="email" data-field-event="keyup" data-field="value:email" class="form-control mb-4" placeholder="E-mail">
                 <input type="password" id="password" class="form-control mb-4" placeholder="Password">
                 <div class="d-flex justify-content-around">
                     <div>
@@ -31,7 +31,7 @@ export function template () {
                         <a href="">Forgot password?</a>
                     </div>
                 </div>
-                <a data-model-event="click" data-model-action="login" data-router-view="login" href="signup" class="btn btn-info btn-block my-4">Sign in</a>
+                <a data-action="click:login" data-router-view="login" href="signup" class="btn btn-info btn-block my-4">Sign in</a>
                 <p>Not a member?
                     <a data-router-view="login" href="signup">Register</a>
                 </p>
@@ -40,36 +40,29 @@ export function template () {
                 <a href="#" class="mx-2" role="button"><i class="fab fa-twitter light-blue-text"></i></a>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-linkedin-in light-blue-text"></i></a>
                 <a href="#" class="mx-2" role="button"><i class="fab fa-github light-blue-text"></i></a>
-
-                <div data-model-prop="className" data-model-field="layout">
-                    <div data-model-prop="innerHTML" data-model-field="message"></div>
+                <div data-trigger="message" data-field="className:layout,innerHTML:message">
                 </div>
+                <div data-field="innerHTML:email"></div>
             </div>`;
 }
 
-export let model = new class Model {
-    constructor() {
-        this._observable = {
-            message: ["layout"]
-        };
-    }
+export let model = {
+    email: "",
+    message: ""
+};
 
-    get email() { return this._email ?? ""; }
-    set email(value) { this._email = value; }
-
-    get message() { return this._message ?? ""; }
-    set message(value) { this._message = value; }
-
-    get layout() { return this.message ? "error" : "" }
-
-    async login() {
-        this.message = "";
-        if (!this.email) {
-            this.message = "Email is required!";
-        } 
-        else if (this.email != "howl.david@gmail.com") {
-            this.message = "Invalid email address";
+export let lambda = {
+    login: async(model) => {
+        model.message = "";
+        if (!model.email) {
+            model.message = "error";
         }
-        return !this.message;
+        else if (model.email != "howl.david@gmail.com") {
+            model.message = "Invalid email address";
+        }
+        return !model.message;
+    },
+    layout: async(model) => {
+        return model.message == "error" ? "error" : "";
     }
 }

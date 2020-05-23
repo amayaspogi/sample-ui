@@ -17,7 +17,7 @@ export let components = new class Components {
         let container = this._containers.filter(c => c.key == key)[0];
         if (!container) {
             let resource = await this.loadResource('components', component);
-            let element = new resource.component(resource.template, resource.model);
+            let element = new resource.component(resource.template, resource.model, resource.lambda);
 
             container = { key: key, element: element };
             this._containers.push(container);
@@ -75,18 +75,21 @@ if (!customElements.get('app-view')) {
 }
 
 export class BaseComponent extends HTMLElement {
-    constructor(template, model) {
+    constructor(template, model, lambda) {
         super();
-        this._setup = { fields: {}, actions: {} };
-        this.innerHTML = template();
-        this.buildModel(model);
         this._init = false;
+        this._fields = new Map();
+        this._actions = new Map();
+
+        this.innerHTML = template();
+        this.buildModel(model, lambda);
     }
 
     async connectedCallback() {
         if (!this._init) {
             this.bindRouter();
             this.dispatchEvent(new CustomEvent("load"));
+
             this._init = true;
         }
     }
@@ -98,64 +101,77 @@ export class BaseComponent extends HTMLElement {
         }
     }
 
-    buildModel(data) {
-        let context = this.querySelector("[data-model-context]");
-        if (context) {
-            // bind field
-            this.querySelectorAll("[data-model-prop][data-model-field]").forEach(x => {
-                let field = x.dataset.modelField;
-                let prop = x.dataset.modelProp;
-                this._setup.fields[field] = this._setup.fields[field] ?? { state: null, elements: new Array() };
-                this._setup.fields[field].state = data[field];
-                this._setup.fields[field].elements.push({ element: x, property: prop });
-                x.addEventListener("change", (e) => {
-                    this._setup.fields[field].state = e.currentTarget[prop];
-                    this.model[field] = this._setup.fields[field].state;
-                });
-            });
+    buildModel(data, lambda) {
+        let context = this.querySelector("[data-context]");
+        if (!context) return;
+        
+        // bind field
+        this.querySelectorAll("[data-field]").forEach(x => {
+            let model = util.toJSON(x.getAttribute("data-field"));
+            let trigger = x.getAttribute("data-trigger") ?? "";
+            let event = x.getAttribute("data-field-event") ?? "change";
+            for (let property in model) {
+                let field = model[property];
 
-            // bind action
-            this.querySelectorAll("[data-model-event][data-model-action]").forEach(x => {
-                let action = x.dataset.modelAction;
-                let event = x.dataset.modelEvent;
-                this._setup.actions[action] = this._setup.actions[action] ?? { elements: new Array() };
-                this._setup.actions[action].elements.push({ element: x, event: event });
+                let item = this._fields.get(field);
+                if (!item) {
+                    item = { elements: new Array(), trigger: trigger };
+                    this._fields.set(field, item);
+                }
+
+                item.elements.push({ element: x, property: property });
+                x.addEventListener(event, (e) => {
+                    this.model[field] = e.currentTarget[property];
+                });
+            }
+        });
+
+        // bind action
+        this.querySelectorAll("[data-action]").forEach(x => {
+            let model = util.toJSON(x.getAttribute("data-action"));
+            for(let event in model) {
+                let action = model[event];
+
+                let item = this._actions.get(action);
+                if (!item) {
+                    item = { elements: new Array() };
+                    this._actions.set(action, item);
+                }
+
+                item.elements.push({ element: x, event: event });
                 x.addEventListener(event, async (e) => {
                     e.preventDefault();
-                    let propagate = await this.model[action]();
+                    let propagate = await this._lambda[action](this.model);
                     if (!propagate) {
                         e.stopPropagation();
-                        e.stopImmediatePropagation();                    }
+                        e.stopImmediatePropagation();
+                    }
                 });
-            });
-        }
+            }
+        });
 
-        Reflect.set(data, "_setup", this._setup);
+        this._lambda = lambda;
+        Reflect.set(data, "_fields", this._fields);
+        Reflect.set(data, "_functions", this._lambda);
 
         this._model = new Proxy(data, {
             get: function (obj, prop) {
                 return obj[prop];
             },
             set: function (obj, prop, value) {
-                function iterateObservable(prop) {
-                    (obj._observable[prop] ?? []).forEach(x => {
-                        let observable = obj[x];
-                        ((obj._setup.fields[x] ?? {}).elements ?? []).forEach(x => {
-                            x.element[x.property] = observable;
-                        });
-
-                        iterateObservable(x);
-                    });                    
-                }
-
                 if (obj[prop] != value) {
                     obj[prop] = value;
-                    obj._setup.fields[prop].state = obj[prop];
-                    ((obj._setup.fields[prop] ?? {}).elements ?? []).forEach(x => {
+                    ((obj._fields.get(prop) ?? {}).elements ?? []).forEach(x => {
                         x.element[x.property] = value;
                     });
 
-                    iterateObservable(prop)
+                    for (let [property, value] of obj._fields) { 
+                        if (prop == value.trigger) {
+                            value.elements.forEach(async function(x) {
+                                x.element[x.property] = await obj._functions[property](obj);
+                            });
+                        }
+                    }
                 }
                 return true;
             }
