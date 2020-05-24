@@ -11,14 +11,17 @@ if (!customElements.get(`app-com-test`)) {
 }
 
 export function template() {
-    return `<div data-context>
-                <input data-field="value:name" />
+    return `<div data-context="model">
+                <input data-field="value:name1" />
                 <input type="button" data-action="click:subadd" value="Sub Add" />
                 <input type="button" data-action="click:add" value="Add" />
-                <div data-field="context:sub">
+                <div data-context="sub">
                     <input data-field="value:name" />
+                    <div data-context="sub">
+                        <input data-field="value:name" />
+                    </div>
                 </div>
-                <div data-field-trigger="list" data-field="innerHTML:total"></div>
+                <div data-field-trigger="model.sub.sub.name" data-field="innerHTML:total"></div>
             </div>`;
 }
 
@@ -26,8 +29,10 @@ export let model = {
     name: "",
     sub: {
         name: "",
-    },
-    list: new Array()
+        sub: {
+            name: ""
+        }
+    }
 };
 
 export let lambda = {
@@ -36,10 +41,11 @@ export let lambda = {
         return true;
     },
     subadd: async(model) => {
-        model.sub.name = model.name + "-sub";
+        model.sub.name = `sub-${model.name}`;
+        model.sub.sub.name = `sub-${model.sub.name}`;
         return true;
     },
-    total: async (model) => {
-        return model.list.length;
+    total: async (data,model) => {
+        return `${JSON.stringify(model)} ==== ${JSON.stringify(data)}`;
     }
 }

@@ -77,8 +77,8 @@ if (!customElements.get('app-view')) {
 export class BaseComponent extends HTMLElement {
     constructor(template, model, lambda) {
         super();
+        this._model = {};
         this._init = false;
-        this._fields = new Map();
         this._actions = new Map();
 
         this.innerHTML = template();
@@ -86,40 +86,63 @@ export class BaseComponent extends HTMLElement {
     }
 
     async connectedCallback() {
-        if (!this._init) {
-            this.bindRouter();
-            this.dispatchEvent(new CustomEvent("load"));
+        if (this._init) return;
+ 
+        this.bindRouter();
+        this.dispatchEvent(new CustomEvent("load"));
 
-            this._init = true;
-        }
+        this._init = true;
     }
 
     get model() { return this._model; }
-    set model(value) {
-        for (let field in value) {
-            Reflect.set(this._model, field, value[field]);
-        }
-    }
 
-    buildModel(data, lambda) {
+    buildModel(model, lambda) {
         let context = this.querySelector("[data-context]");
         if (!context) return;
-        
+
+        // build proxy model
+        let fields = new Array();
+        let iterateModel = (model, context) => {
+            for (let property in model) {
+                if (util.isObject(model[property])) {
+                    iterateModel(model[property], `${context}.${property}`);
+                    model[property] = new Proxy(model[property], this.proxyHandler(fields, lambda));
+                }
+                else {
+                    fields.push({ property, context, trigger: "", elements: new Array() });
+                    model._context = context;
+                }
+            }
+            return;
+        };
+
+        if (util.isObject(model)) {
+            iterateModel(model, "model");
+            model = new Proxy(model, this.proxyHandler(fields, lambda));
+        }
+
+        // set global variable
+        this._model = model;
+        lambda.model = model;
+
         // bind field
         this.querySelectorAll("[data-field]").forEach(x => {
+            let context = util.getContext(x);
             let model = util.toJSON(x.getAttribute("data-field"));
-            let trigger = x.getAttribute("data-trigger") ?? "";
+            let trigger = x.getAttribute("data-field-trigger") ?? "";
             let event = x.getAttribute("data-field-event") ?? "change";
+
             for (let property in model) {
                 let field = model[property];
 
-                let item = this._fields.get(field);
-                if (!item) {
-                    item = { elements: new Array(), trigger: trigger };
-                    this._fields.set(field, item);
+                let fieldItem = fields.filter(x => x.property == field && x.context == context && x.trigger == trigger)[0];
+                if (!fieldItem && trigger) {
+                    fieldItem = { property: field, context, trigger, elements: new Array() };
+                    fields.push(fieldItem);
                 }
+                if (!fieldItem) continue;
 
-                item.elements.push({ element: x, property: property });
+                fieldItem.elements.push({ element: x, property: property });
                 x.addEventListener(event, (e) => {
                     this.model[field] = e.currentTarget[property];
                 });
@@ -141,7 +164,7 @@ export class BaseComponent extends HTMLElement {
                 item.elements.push({ element: x, event: event });
                 x.addEventListener(event, async (e) => {
                     e.preventDefault();
-                    let propagate = await this._lambda[action](this.model);
+                    let propagate = await lambda[action](this.model);
                     if (!propagate) {
                         e.stopPropagation();
                         e.stopImmediatePropagation();
@@ -149,33 +172,38 @@ export class BaseComponent extends HTMLElement {
                 });
             }
         });
+    }
 
-        this._lambda = lambda;
-        Reflect.set(data, "_fields", this._fields);
-        Reflect.set(data, "_functions", this._lambda);
-
-        this._model = new Proxy(data, {
+    proxyHandler(fields, lambda, model) {
+        return {
             get: function (obj, prop) {
                 return obj[prop];
             },
             set: function (obj, prop, value) {
                 if (obj[prop] != value) {
                     obj[prop] = value;
-                    ((obj._fields.get(prop) ?? {}).elements ?? []).forEach(x => {
+
+                    let fieldItem = this.fields.filter(x => x.property == prop && x.context == obj._context)[0];
+                    if (!fieldItem) return true;
+
+                    fieldItem.elements.forEach(x => {
                         x.element[x.property] = value;
                     });
 
-                    for (let [property, value] of obj._fields) { 
-                        if (prop == value.trigger) {
-                            value.elements.forEach(async function(x) {
-                                x.element[x.property] = await obj._functions[property](obj);
-                            });
-                        }
-                    }
+                    let fieldTrigger = this.fields.filter(x => `${obj._context}.${prop}` == x.trigger)[0];
+                    if (!fieldTrigger) return true;
+
+                    fieldTrigger.elements.map(x => { 
+                        return { element: x.element, property: x.property, lambda: this.lambda[fieldTrigger.property], model: this.lambda.model }; 
+                    }).forEach(async (x) => {
+                        x.element[x.property] = await x.lambda(obj, x.model);
+                    });
                 }
                 return true;
-            }
-        });
+            },
+            fields: fields,
+            lambda: lambda
+        }
     }
 
     bindRouter() {
